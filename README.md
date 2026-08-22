@@ -1,73 +1,66 @@
 # compute-commons
 
-> An open specification for provider-agnostic AI inference compute accounting.
+> Open research and specifications for provider-agnostic AI inference resource accounting.
 
-**Status**: RFC Draft · Est. 2026.04  
-**Author**: [@pzy19-prog](https://github.com/pzy19-prog)  
-**Related**: [pzy-v5](https://github.com/pzy19-prog/pzy-v5) — reference implementation
+**Status**: Research Rebaseline · 2026-08  
+**Author**: [@pzy19-prog](https://github.com/pzy19-prog)
 
----
+compute-commons studies a basic question before standardizing an answer:
 
-## The Problem
+> Which AI inference resource measurements are meaningfully comparable across providers, and at what layer should they be normalized?
 
-You pay for AI compute in tokens, API calls, GPU-hours — each provider uses different units, different pricing models, different billing granularities. There is no common unit of account.
+The project does **not** assume that all AI compute can be losslessly represented by one scalar unit.
 
-This makes it impossible to:
-- Compare costs across providers on equal footing
-- Build portable budgeting systems that survive provider switches
-- Reason about compute as a fungible, measurable resource
+## Scope
 
----
+compute-commons separates four layers that are often conflated:
 
-## The Proposal
+1. **Usage** — tokens, requests, media units, cache activity and other provider-visible usage.
+2. **Commercial** — price, currency and pricing-version information.
+3. **Quota** — limits, remaining allowance, reset cycles and subscription-specific constraints.
+4. **Compute proxies** — GPU time, accelerator type, FLOP or energy estimates when such evidence is actually available.
 
-Define a **Compute Unit (CU)** — a provider-agnostic atomic unit of AI inference work — and a protocol for how providers declare, exchange, and account for compute in these units.
+The project researches whether an aggregate **Compute Unit (CU)** can be derived from these dimensions without hiding material differences. CU is therefore a research hypothesis, not a settled primitive.
 
-Like currency exchange: providers declare their exchange rate to CU, and consumers reason in CU regardless of which provider they use.
+## Project Structure
 
----
+- `research/` — problem framing, terminology, prior art and open questions.
+- `spec/` — candidate resource, accounting and normalization models.
+- `rfcs/` — versioned protocol proposals and historical drafts.
+- `schemas/` — machine-readable interchange schemas.
+- `experiments/` — validation plans and empirical work.
 
-## RFCs
+## RFC Status
 
-| # | Title | Status |
-|---|-------|--------|
-| [RFC-0001](rfcs/RFC-0001-compute-unit.md) | Compute Unit Definition | Draft |
-| RFC-0002 | Provider Declaration Format | Planned |
-| RFC-0003 | Cross-provider Routing Protocol | Planned |
+| RFC | Title | Status |
+|---|---|---|
+| [RFC-0001](rfcs/RFC-0001-compute-unit.md) | Compute Unit Definition | Historical Draft · Under Re-evaluation |
+| [RFC-0002](rfcs/RFC-0002-compute-resource-event.md) | Compute Resource Event Model | Draft |
 
----
+See [RFC Process](rfcs/RFC-PROCESS.md).
+
+## Relationship to Other Systems
+
+compute-commons defines **measurement and accounting semantics**. It does not choose models or route tasks.
+
+- **CLI Quota Watch** is a candidate observation and validation source for quota/usage evidence.
+- **Forge Orchestrator** may consume normalized resource evidence for routing and budget decisions, but routing is out of scope here.
+- **PZY V5** is a candidate future reference consumer. It is **not currently claimed to implement compute-commons in production**.
 
 ## Relationship to Existing Protocols
 
-compute-commons is **not** a payments protocol.
+compute-commons is not a payments protocol. Payment and authorization standards answer how agents pay or are authorized to pay; compute-commons focuses on describing what resource usage was observed and how accounting claims are derived.
 
-| Protocol | Layer | What it solves |
-|----------|-------|----------------|
-| ACP (OpenAI+Stripe) | Commerce | Agent checkout & merchant integration |
-| AP2 (Google) | Authorization | Agent payment mandates & trust |
-| x402 | Transport | HTTP-native micropayments |
-| **compute-commons** | **Metering** | **How much compute was used** |
+## Research Baseline
 
-ACP/AP2/x402 solve "how agents pay." compute-commons solves "what they're paying for." These are complementary layers.
+Start with:
 
----
-
-## Reference Implementation
-
-PZY V5 uses this protocol internally via its LiteLLM proxy layer.  
-Cost tracking: `cost_records` table with provider-normalized CU fields.  
-Budget enforcement: `system_config.budget.daily_cost_usd` runtime-configurable.
-
----
-
-## Discussion
-
-Open an Issue to discuss the RFCs.  
-The CU definition in RFC-0001 is the most important thing to get right — feedback welcome.
-
----
+- [Research Agenda](research/RESEARCH_AGENDA.md)
+- [Problem Statement](research/PROBLEM_STATEMENT.md)
+- [Terminology](research/TERMINOLOGY.md)
+- [Prior Art](research/PRIOR_ART.md)
+- [Open Questions](research/OPEN_QUESTIONS.md)
 
 ## License
 
-Specification text: MIT  
-*(Additionally available under CC BY 4.0 — the spec is meant to be adopted, not hoarded.)*
+MIT. See [LICENSE](LICENSE).
