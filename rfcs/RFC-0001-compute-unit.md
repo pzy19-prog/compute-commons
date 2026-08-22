@@ -1,162 +1,61 @@
 # RFC-0001: Compute Unit (CU) Definition
 
-**Status**: Draft  
+**Status**: Historical Draft · Under Re-evaluation  
 **Created**: 2026-04  
-**Author**: pzy19-prog  
-**Repository**: compute-commons  
-**Discussion**: [Issues](https://github.com/pzy19-prog/compute-commons/issues)
+**Reclassified**: 2026-08  
+**Author**: pzy19-prog
 
----
+> This document is preserved as the first-generation design of compute-commons. It is **not** the current normative baseline. The 2026-08 rebaseline identified unresolved assumptions in collapsing heterogeneous AI inference usage, commercial pricing and physical compute into a single scalar CU.
 
-## Abstract
+## Historical Proposal
 
-This RFC defines the **Compute Unit (CU)** — a provider-agnostic atomic unit for measuring AI inference work. It specifies how providers declare their CU exchange rates and how consumers normalize costs across providers for budgeting and comparison.
+The original proposal defined one Compute Unit as the compute equivalent of processing 1,000 input tokens and generating 100 output tokens using a GPT-3.5-turbo-equivalent capability tier anchored to 2024-01-01, with provider-specific `cu_rate` declarations.
 
----
+That proposal was intended to make cross-provider budgeting and comparison easier. It remains useful as a hypothesis and as project history, but several assumptions require evidence before the model can become normative.
 
-## Motivation
+## Why This RFC Was Reclassified
 
-Current AI inference billing is fragmented:
+The original design did not establish a defensible derivation rule for provider `cu_rate` values. A rate based on price measures commercial exchange, not physical compute. A rate based on FLOPs or GPU time is usually unavailable to API consumers. A rate based on model capability becomes a benchmark/capability metric rather than a compute metric. Provider self-declaration alone does not guarantee cross-provider comparability.
 
-- OpenAI bills per token (input/output separately, with cache tiers)
-- Anthropic bills per token with cache read/write distinctions
-- Alibaba DashScope bills per thousand tokens with model-tier pricing
-- GPU cloud providers bill per GPU-hour
-- Some providers bill per API call
+The original design also mixed dimensions that should initially remain separate:
 
-A consumer running workloads across multiple providers cannot answer a simple question: *"how much compute did I use today?"* — without provider-specific accounting logic embedded in their codebase.
+- provider-visible usage such as input/output/cache tokens;
+- commercial cost and pricing versions;
+- subscription or CLI quota limits and reset cycles;
+- hardware-level or estimated compute proxies.
 
-This problem compounds in multi-agent systems where a single user task may invoke 5–20 LLM calls across different model tiers and providers. The lack of a common unit makes budgeting, optimization, and provider comparison structurally difficult.
+The current research baseline therefore starts with a multidimensional resource event and tests whether an aggregate CU can be derived without hiding material differences.
 
-The Compute Unit is a minimal abstraction that solves this without requiring providers to change their pricing models.
+## Historical Non-goals
 
----
+The original proposal already excluded training compute, cryptocurrency/tokenization and workload portability. Those exclusions remain useful, but the overall project scope is now defined in the repository research baseline.
 
-## Specification
+## Correction to Previous Reference-Implementation Claim
 
-### 1. Compute Unit (CU) Definition
+Earlier versions of this RFC stated that PZY V5 implemented CU accounting in production through `cu_rate`, `cu_consumed`, `shared/cost.py` and `system_config.budget.daily_cu`.
 
-A **Compute Unit** is defined as:
+That statement is withdrawn. The current PZY V5 repository has cost-observation infrastructure but does not provide the claimed compute-commons implementation. PZY V5 is treated only as a **candidate future reference consumer** unless a separate evidence-backed integration is implemented and verified.
 
-> The compute equivalent of processing 1,000 input tokens and generating 100 output tokens using a reference model (GPT-3.5-turbo-equivalent capability tier) as of 2024-01-01.
+## Successor Work
 
-**Design decisions:**
+The active baseline is:
 
-- The definition is intentionally **fixed in time**. CU is a stable accounting unit, not a tracker of hardware efficiency improvements.
-- The 10:1 input/output ratio reflects typical production workload patterns.
-- The reference date anchors the definition independent of future model repricing.
+- `research/RESEARCH_AGENDA.md`
+- `spec/resource-model.md`
+- `spec/accounting-model.md`
+- `spec/normalization-model.md`
+- `rfcs/RFC-0002-compute-resource-event.md`
+- `schemas/compute-resource-event.schema.json`
 
-**Reference CU cost**: $0.002 USD (as of definition date)
+## Historical Design Questions Retained for Research
 
-### 2. Provider Exchange Rate Declaration
-
-Providers (or proxy layers like LiteLLM) declare a `cu_rate` in their model configuration:
-
-```json
-{
-  "model": "gpt-4o",
-  "provider": "openai",
-  "cu_rate": {
-    "per_1k_input_tokens": 0.5,
-    "per_1k_output_tokens": 2.0,
-    "per_1k_cache_read_tokens": 0.05,
-    "effective_date": "2024-01-01",
-    "version": "1"
-  }
-}
-```
-
-`cu_rate` values are **CU per unit of provider billing**, not USD. This decouples the standard from USD price fluctuations.
-
-### 3. Consumer Normalization
-
-Consumers normalize provider costs to CU at ingestion time:
-
-```python
-def to_cu(input_tokens, output_tokens, cache_read_tokens=0, cu_rate):
-    return (
-        (input_tokens / 1000) * cu_rate["per_1k_input_tokens"] +
-        (output_tokens / 1000) * cu_rate["per_1k_output_tokens"] +
-        (cache_read_tokens / 1000) * cu_rate.get("per_1k_cache_read_tokens", 0)
-    )
-```
-
-CU is stored alongside USD cost in billing records:
-
-```sql
-CREATE TABLE cost_records (
-    id uuid PRIMARY KEY,
-    task_id uuid,
-    provider text,
-    model text,
-    input_tokens int,
-    output_tokens int,
-    cache_read_tokens int DEFAULT 0,
-    cu_consumed decimal(10, 4),   -- normalized compute units
-    cost_usd decimal(10, 6),      -- actual provider cost
-    cu_rate_version text,         -- which rate declaration was used
-    recorded_at timestamptz DEFAULT NOW()
-);
-```
-
-USD fluctuates with provider repricing. CU provides a stable comparison baseline across time and providers.
-
-### 4. Budget Expression
-
-Budgets may be expressed in CU, USD, or both:
-
-```yaml
-budget:
-  daily_cu: 500
-  daily_usd: 2.00
-  enforce: whichever_first
-```
-
-Enforcement logic runs at the proxy layer (e.g., LiteLLM gateway) before forwarding requests.
-
----
-
-## Non-goals
-
-- CU is **not** a tradeable token or cryptocurrency
-- CU does **not** imply portability of workloads between providers
-- CU does **not** track hardware efficiency improvements over time
-- This RFC does **not** define a marketplace or exchange mechanism (see RFC-0003)
-- This RFC does **not** cover training compute — inference only
-
----
-
-## Open Questions
-
-1. Should the reference model definition be updated on a fixed schedule (e.g., every 2 years), or remain permanently fixed at 2024-01-01?
-2. How should multimodal inputs (images, audio, video) be normalized to CU?
-3. Should cached tokens count at a reduced CU rate, or zero?
-4. Who maintains the canonical `cu_rate` registry for major providers?
-
----
-
-## Relationship to Other Standards
-
-- **MLCommons**: focuses on training benchmark performance, not inference billing
-- **FLOP-based metrics**: hardware-level, not usable at the API consumer layer  
-- **ACP/AP2**: solve agent payment authorization, not compute metering
-- **OpenTelemetry semantic conventions for LLM**: covers observability attributes, complementary to CU
-
-compute-commons fills the gap between "I made an API call" and "I can compare that call to any other call on any provider."
-
----
-
-## Reference Implementation
-
-PZY V5 (`pzy-v5`) implements this RFC in production:
-
-- `infra/litellm/config.yaml` — model configs with cu_rate declarations
-- `shared/cost.py` — `to_cu()` normalization function  
-- `cost_records` table — stores both `cu_consumed` and `cost_usd` per LLM call
-- `system_config.budget.daily_cu` — runtime-configurable CU budget
-
----
+1. Can any stable scalar CU be derived from provider-visible evidence?
+2. Should a scalar represent compute, commercial value, quota pressure, or a clearly named composite index?
+3. How should cache, reasoning and multimodal usage be represented?
+4. Which party is authoritative for normalization coefficients?
+5. How should versions and uncertainty be carried with every derived value?
 
 ## Changelog
 
-- 2026-04: Initial draft
+- 2026-04: Initial draft.
+- 2026-08: Reclassified as historical draft; production implementation claim withdrawn; scalar-CU assumptions moved back into research.
