@@ -1,0 +1,60 @@
+name: Phase 1 Validation
+
+on:
+  pull_request:
+    paths:
+      - "experiments/phase1/**"
+      - "schemas/**"
+      - ".github/workflows/phase1-validation.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "experiments/phase1/**"
+      - "schemas/**"
+
+permissions:
+  contents: read
+
+jobs:
+  capture-validator:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run capture validator tests
+        working-directory: experiments/phase1
+        run: python -m unittest -v test_validate_capture.py
+
+      - name: Parse JSON schemas
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          paths = [
+              Path("schemas/compute-resource-event.schema.json"),
+              Path("experiments/phase1/capture-record.schema.json"),
+          ]
+          for path in paths:
+              json.loads(path.read_text(encoding="utf-8"))
+              print(f"VALID JSON: {path}")
+          PY
+
+      - name: Dry-run OpenAI capture plan
+        working-directory: experiments/phase1
+        run: python run_dual_surface.py openai --model test-openai-model --dry-run
+
+      - name: Dry-run Anthropic capture plan
+        working-directory: experiments/phase1
+        run: python run_dual_surface.py anthropic --model test-anthropic-model --dry-run
+
+      - name: Dry-run Gemini capture plan
+        working-directory: experiments/phase1
+        run: python run_dual_surface.py gemini --model test-gemini-model --dry-run
