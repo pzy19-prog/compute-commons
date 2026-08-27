@@ -46,3 +46,15 @@ jobs:
               json.loads(path.read_text(encoding="utf-8"))
               print(f"VALID JSON: {path}")
           PY
+
+      - name: Dry-run OpenAI capture plan
+        working-directory: experiments/phase1
+        run: python run_dual_surface.py openai --model test-openai-model --dry-run
+
+      - name: Dry-run Anthropic capture plan
+        working-directory: experiments/phase1
+        run: python run_dual_surface.py anthropic --model test-anthropic-model --dry-run
+
+      - name: Dry-run Gemini capture plan
+        working-directory: experiments/phase1
+        run: python run_dual_surface.py gemini --model test-gemini-model --dry-run
