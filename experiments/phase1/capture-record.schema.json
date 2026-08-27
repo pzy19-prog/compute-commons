@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/pzy19-prog/compute-commons/experiments/phase1/capture-record.schema.json",
+  "title": "Phase 1 Runtime Evidence Capture Record",
+  "type": "object",
+  "required": ["experiment_id", "claim_id", "evidence_class", "provider", "surface", "observed_at", "canonical_input", "raw_evidence"],
+  "properties": {
+    "experiment_id": {"type": "string", "minLength": 1},
+    "claim_id": {"type": "string", "minLength": 1},
+    "evidence_class": {"const": "observed"},
+    "provider": {"type": "string", "minLength": 1},
+    "surface": {"type": "string", "minLength": 1},
+    "model": {"type": "string"},
+    "observed_at": {"type": "string", "format": "date-time"},
+    "provider_request_id": {"type": "string"},
+    "correlation_id": {"type": "string"},
+    "canonical_input": {
+      "type": "object",
+      "required": ["representation", "sha256"],
+      "properties": {
+        "representation": {"enum": ["inline", "redacted", "hash-only"]},
+        "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "serialization": {"type": "string"},
+        "description": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "usage": {"type": "object", "additionalProperties": true},
+    "raw_evidence": {
+      "type": "object",
+      "required": ["kind", "reference"],
+      "properties": {
+        "kind": {"enum": ["inline-json", "file", "artifact", "hash-reference"]},
+        "reference": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+      },
+      "additionalProperties": false
+    },
+    "notes": {"type": "string"}
+  },
+  "additionalProperties": false
+}
